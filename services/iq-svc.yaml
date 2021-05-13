@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app_name: iq-service
+  name: iq-service
+  namespace: t3
+spec:
+  ports:
+  - name: port-8000
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app_name: iq-service
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

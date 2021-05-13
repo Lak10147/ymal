@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+  AppNode:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.small
+      ImageId: ami-03d5c68bab01f3496
+      KeyName: new-aecs-oregon-pem
+      SecurityGroups:
+        - !Ref AppNodeSG
+      UserData: !Base64 |
+        #!/bin/bash
+        apt-get update -qq
+        apt-get install zip unzip
+        apt-get install -y apt-transport-https ca-certificates
+        apt-get install docker.io -y
+        systemctl enable docker.service
+        systemctl enable containerd.service
+        gpasswd -a $USER docker
+        usermod -aG docker ubuntu && newgrp docker
+        service docker restart
+        apt-get install -y conntrack
+        curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/kubectl
+        chmod +x ./kubectl
+        mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
+        echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
+        kubectl version --short --client
+        curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+        minikube version
+        sudo -i
+        wget https://github.com/isharanuwan02/ymal/archive/main.zip        
+        mkdir /home/ubuntu/ymls     
+        unzip ./main.zip -d /home/ubuntu/ymls
+        
+        minikube start --driver=docker
+        minikube addons enable ingress
+        kubectl create ns sliit-aecs
+        kubectl apply -f /home/ubuntu/ymls/ymal-main/secrets/dockerconfig-sercret.yaml
+        kubectl apply deployment -f --image=/home/ubuntu/ymls/ymal-main/deployments/list-deployment.yaml
+        kubectl apply deployment -f --image=/home/ubuntu/ymls/ymal-main/deployments/git-deployment.yaml
+        kubectl expose deployment list-service --type=LoadBalancer --name=list-service -n sliit-
+        kubectl expose deployment list-service --type=LoadBalancer --name=git-service -n sliit-
+
+        minikube service web --url
+        kubectl get deployments -n sliit-aecs
+        kubectl get svc -n sliit-aecs
+        kubectl get pods -n sliit-aecs
+        
+  AppNodeSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: for the app nodes that allow ssh, http and docker ports
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '2375'
+        ToPort: '2375'
+        CidrIp: 0.0.0.0/0
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: "newDB"
+      Engine: MySQL
+      EngineVersion: 8.0.20
+      Port: 3306
+      DBInstanceClass: db.t3.micro
+      StorageType: gp2
+      AllocatedStorage: 20
+      MasterUsername: aecs_user
+      MasterUserPassword: aecs_user123
+      DBInstanceClass: db.t3.micro   
+      DBSecurityGroups:
+        - !Ref DatabaseSG
+  DatabaseSG:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: Security Group for RDS public access
+      DBSecurityGroupIngress:
+        - CIDRIP: 0.0.0.0/0
+Outputs:
+  InstanceID:
+    Description: The Instance ID
+    Value: !Ref AppNode

@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  generation: 2
+  name: list-service
+  namespace: t3
+spec:
+  rules:
+  - host: list.lak.com
+    http:
+      paths:
+      - backend:
+          serviceName: list-service
+          servicePort: 8000
+        path: /
+  tls:
+  - hosts:
+    - list.lak.com
+    secretName: list-service
+status:
+  loadBalancer:
+    ingress:
+    - ip: 0.0.0.0 

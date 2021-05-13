@@ -1,0 +1,23 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  generation: 2
+  name: git-service
+  namespace: t3
+spec:
+  rules:
+  - host: git.lak.com
+    http:
+      paths:
+      - backend:
+          serviceName: git-service
+          servicePort: 8000
+        path: /
+  tls:
+  - hosts:
+    - repo.lak.com
+    secretName: git-service
+status:
+  loadBalancer:
+    ingress:
+    - ip: 0.0.0.0 
